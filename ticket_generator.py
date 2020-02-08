@@ -23,6 +23,7 @@ import argparse
 import json
 import datetime
 import random
+import copy
 
 def main():
 
@@ -46,22 +47,36 @@ def main():
 
     meta_fields = sample_json['metadata'].keys()
     if args.verbose:
-        print('metadata fields collected')
+        print('metadata fields extracted')
         print(meta_fields, '\n')
 
     activities_samples = []
     for i in range(sample_json['metadata']['activities_count']):
             activities_samples.append(sample_json['activities_data'][i])
     activities_samples = remove_duplicates(activities_samples)
-    # print(activities_samples)
+    if args.verbose:
+        print('activities samples extracted')
+        print(activities_samples, '\n')
 
-    # empty_act_json = empty_dict(activities_samples[0])
-    empty_act_json = empty_dict(activities_samples[1])
+    activities_list = []
+    for i in range(args.ticket_gen):
+        rand_act = random.randint(0, sample_json['metadata']['activities_count']-1)
+        empty_json = empty_dict(activities_samples[rand_act])
+        new_activity = fill_empty_act_json(empty_json)
+        activities_list.append(copy.deepcopy(new_activity))
+        if args.verbose:
+            print(new_activity, '\n')
 
-    new_activity = fill_empty_act_json(empty_act_json)
-    print(new_activity)
+    for i in range(len(activities_list)):
+        print(activities_list[i], '\n')
+
+    # print(json.dumps(sample_json, indent=4), '\n')
+    # for i in range(len(sample_json['activities_data'])):
+    #     print(sample_json['activities_data'][i], '\n')
 
 def fill_empty_act_json(json):
+    '''Iterates through nested python dicts and when at the end of a nested
+    structure, generates random data for activities data with empty values'''
 
     for k, v in json.items():
         if isinstance(v, dict):
@@ -80,45 +95,56 @@ def gen_value(k):
         val = gen_rand_datetime()
     elif k in ['ticket_id']:
         val = random.randint(100,999)
-    elif k in ['performer_id', 'agent_id', 'requester']:
+    elif k in ['agent_id', 'requester']:
         val = random.randint(100000, 999999)
     elif k in ['id']:
         val = random.randint(1000000, 9999999)
     elif k in ['shipment_date']:
-        val = 'DD MMM YYYY'
+        val = gen_rand_date()
     elif k in ['status']:
         val = gen_rand_status()
 
     return val
 
 def gen_rand_status():
-    '''returns a random value out of Open, Closed, Resolved, Waiting for
+    '''Returns a random value out of Open, Closed, Resolved, Waiting for
     Customer, Waiting for Third Party, or Pending'''
 
     status_vals = ['Open', 'Closed', 'Resolved', 'Waiting for Customer',
     'Waiting for Third Party', 'Pending']
-
     return status_vals[random.randint(0,5)]
 
+def gen_rand_date():
+    '''Generates a random date between the date provided in the sample JSON
+    and an arbitrary date 4 years in the future. Returns the date in the
+    DD MMM YYY string format'''
+
+    start = '20 Apr 2017'
+    end = '20 Apr 2020'
+    frmt = '%d %b %Y'
+    stime = datetime.datetime.strptime(start, frmt)
+    etime = datetime.datetime.strptime(end, frmt)
+    td = etime - stime
+    return (random.random() * td + stime).strftime('%d %b %Y')
+
 def gen_rand_datetime():
-    '''generates a random datetime between the date provided in the sample JSON
-    and the current date of writing this script. Removes the decimals on the
-    seconds, adds the timezone afterwards'''
+    '''Generates a random datetime between the date provided in the sample JSON
+    and an arbitrary date 4 years in the future. Removes the decimals on the
+    seconds, adds the timezone afterwards as a string'''
 
     start = '20-04-2017 10:00:00'
-    end = '20-04-2021 10:00:00'
+    end = '20-04-2020 10:00:00'
     frmt = '%d-%m-%Y %H:%M:%S'
     stime = datetime.datetime.strptime(start, frmt)
     etime = datetime.datetime.strptime(end, frmt)
     td = etime - stime
-    print(random.random() * td + stime)
     return str(random.random() * td + stime).split('.')[0] + ' +0000'
 
 def empty_dict(d):
     '''Takes a nested python dict and sets values as empty if they are in
     'del fields'. '''
 
-    del_fields = ['performed_at', 'ticket_id', 'performer_id', 'id',
+    del_fields = ['performed_at', 'ticket_id', 'id',
     'shipment_date', 'status', 'agent_id', 'requester']
     for k, v in d.items():
         if isinstance(v, dict):
