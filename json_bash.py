@@ -3,7 +3,7 @@ import pandas as pd
 import json
 from pandas.io.json import json_normalize
 
-with open('test_new_json.json', 'r') as read_file:
+with open('new_data.json', 'r') as read_file:
     sample_json = json.load(read_file)
 
 

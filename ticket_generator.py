@@ -17,6 +17,8 @@ Finally, the meta data of the new JSON will be generated, with the start and
 end datetimes to be filled after checking the activities data start and end
 datetimes.
 
+Command line usage example: 'python .\ticket_generator.py '.\data_file.json' -ticket_gen 10  -v -output_file new_json.json'
+
 '''
 
 import argparse
