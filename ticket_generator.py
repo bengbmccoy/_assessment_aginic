@@ -47,7 +47,7 @@ def main():
 
     meta_fields = sample_json['metadata'].keys()
     if args.verbose:
-        print('metadata fields extracted')
+        print('metadata fields extracted:')
         print(meta_fields, '\n')
 
     activities_samples = []
@@ -55,24 +55,50 @@ def main():
             activities_samples.append(sample_json['activities_data'][i])
     activities_samples = remove_duplicates(activities_samples)
     if args.verbose:
-        print('activities samples extracted')
+        print('activities samples extracted:')
         print(activities_samples, '\n')
 
-    activities_list = []
+    new_act_data = []
     for i in range(args.ticket_gen):
         rand_act = random.randint(0, sample_json['metadata']['activities_count']-1)
         empty_json = empty_dict(activities_samples[rand_act])
         new_activity = fill_empty_act_json(empty_json)
-        activities_list.append(copy.deepcopy(new_activity))
+        new_act_data.append(copy.deepcopy(new_activity))
+        if i % (args.ticket_gen/10) == 0:
+            if args.verbose:
+                print('The ' + str(i) + 'th new activity is: ', new_activity, '\n')
+
+    new_metadata = fill_empty_metadata(meta_fields, new_act_data)
+    if args.verbose:
+        print('new metadata fields are filled in:')
+        print(new_metadata, '\n')
+
+    if args.output_file:
+        new_json = dict()
+        new_json['metadata'] = new_metadata
+        new_json['activities_data'] = new_act_data
+
+        with open(args.output_file, 'w') as fp:
+            json.dump(new_json, fp)
+
         if args.verbose:
-            print(new_activity, '\n')
+            print('the file has been saved as: ')
+            print(args.output_file)
 
-    for i in range(len(activities_list)):
-        print(activities_list[i], '\n')
+def fill_empty_metadata(meta_fields, act_list):
+    '''This function take the keys of the metadata fields and a filled list
+    of randomly generated activities and fills in the metadata required for
+    the generated data.'''
 
-    # print(json.dumps(sample_json, indent=4), '\n')
-    # for i in range(len(sample_json['activities_data'])):
-    #     print(sample_json['activities_data'][i], '\n')
+    datetime_list=[]
+    meta_dict = {}
+    for i in range(len(act_list)):
+        datetime_list.append(act_list[i]['performed_at'])
+    meta_fields = list(meta_fields)
+    meta_dict[meta_fields[0]] = min(datetime_list)
+    meta_dict[meta_fields[1]] = max(datetime_list)
+    meta_dict[meta_fields[2]] = len(datetime_list)
+    return meta_dict
 
 def fill_empty_act_json(json):
     '''Iterates through nested python dicts and when at the end of a nested
@@ -103,7 +129,6 @@ def gen_value(k):
         val = gen_rand_date()
     elif k in ['status']:
         val = gen_rand_status()
-
     return val
 
 def gen_rand_status():
