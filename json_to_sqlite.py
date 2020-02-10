@@ -9,6 +9,9 @@ stored.
 
 The script will use sqlite3 to store the JSON in a sqlite database.
 
+NOTE: the JOSN key 'group' is changed to 'group_type' in the SQLite database
+as 'group' is functional SQL command.
+
 '''
 
 import json
@@ -33,30 +36,70 @@ def main():
         print(json.dumps(json_dict, indent=4), '\n')
 
     db_cols = []
-    db_cols = list(set(get_db_cols(json_dict, db_cols)))
+    db_cols = remove_duplicates(get_db_cols(json_dict, db_cols))
+    db_cols[db_cols.index('group')] = 'group_type'
     if args.verbose:
         print('The list of keys in the dictionary are:')
         print(db_cols, '\n')
 
     create_string = gen_create_string('test_db', db_cols)
-    print(create_string)
+    if args.verbose:
+        print('the create string looks like below:')
+        print(create_string, '\n')
 
-    # conn = sqlite3.connect('activities_db')
-    # c = conn.cursor()
-    #
-    # c.execute('''CREATE TABLE activities (
-    #
-    #             )''')
+    conn = sqlite3.connect('activities_db')
+    c = conn.cursor()
+    c.execute(create_string)
+
+    metadata = json_dict['metadata']
+    all_insert_strings = []
+    for i in range(metadata['activities_count']):
+        insert_string, insert_dict = gen_insert_string(metadata, json_dict['activities_data'][i])
+        if args.verbose:
+            print('the insert string looks like below:')
+            print(insert_string, tuple(insert_dict.values()), '\n')
+        c.execute(insert_string, tuple(insert_dict.values()))
+
+    conn.commit()
+    conn.close()
+
+def gen_insert_string(metadata, actdata):
+    '''This function takes a JSON ticket's metadata and an activities data dict
+    and returns a string and dict that can be used for an sqlite insert
+    statement.'''
+
+    comb_dict = {**metadata, **actdata}
+    insert_dict = {}
+    insert_dict = get_key_val_pairs(comb_dict, insert_dict)
+
+    columns = ', '.join(insert_dict.keys())
+    placeholders = ', '.join('?' * len(insert_dict))
+    sql = 'INSERT INTO test_db ({}) VALUES ({})'.format(columns, placeholders)
+    return sql, insert_dict
+
+
+def get_key_val_pairs(d, d_fill):
+    '''This function takes a nested dictionary with keys and values (d) and a
+    flat dictionary (d_fill) that is to be filled with each key-value pair
+    the function returns the falt dictionary.'''
+
+    for k, v in d.items():
+        if isinstance(v, dict):
+            get_key_val_pairs(v, d_fill)
+        else:
+            if k == 'group':
+                d_fill['group_type'] = v
+            else:
+                d_fill[k] = v
+    return d_fill
+
 
 def gen_create_string(tablename, columns):
     '''This function takes a list and creates a string that can be used to
     generate a table in SQLite3'''
 
-    # string = "CREATE TABLE {scrub(tablename)} ({columns[0]}" + (",{} "*len(columns)-1)).format(*map(scrub,columns[1:])) + ")"
-    # return string
-
-    return f"create table {scrub(tablename)} ({columns[0]}" + (
-            ",{} "*(len(columns)-1)).format(*map(scrub,columns[1:])) + ")"
+    return f"CREATE TABLE {scrub(tablename)} ({columns[0]} text" + (
+            ", {} text"*(len(columns)-1)).format(*map(scrub,columns[1:])) + ")"
 
 def scrub(string):
     '''A quick scrub to ensure no SQL injection, removes any non alphanumeric
@@ -86,6 +129,11 @@ def get_db_cols(d, l):
             l.append(str(k))
 
     return l
+
+def remove_duplicates(l):
+    seen = set()
+    seen_add = seen.add
+    return [x for x in l if not (x in seen or seen_add(x))]
 
 if __name__ == "__main__":
     main()
